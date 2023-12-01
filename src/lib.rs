@@ -1,14 +1,17 @@
+use days::*;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{self, Write};
 
 pub mod days;
+pub mod parser;
 pub mod utils;
 
 type AdventResult<T> = Result<T, AdventErr>;
 
 pub enum AdventErr {
     Io(io::Error),
+    InputParse(String),
 }
 
 impl Display for AdventErr {
@@ -16,6 +19,7 @@ impl Display for AdventErr {
         use AdventErr as AE;
         match self {
             AE::Io(e) => e.fmt(f),
+            AE::InputParse(s) => write!(f, "Input Parse Error:\n{s}"),
         }
     }
 }
@@ -72,6 +76,7 @@ pub fn get_input_file(day: u8) -> Result<File, io::Error> {
 
 pub fn get_day_fn(day: u8) -> Option<fn(File) -> AdventResult<()>> {
     match day {
+        1 => Some(day_1::run),
         _ => None,
     }
 }
