@@ -11,6 +11,10 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&games)?;
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&games)?;
+
     Ok(())
 }
 
@@ -25,6 +29,16 @@ fn part_1(games: &[CubeGameInstance]) -> AdventResult<()> {
         .sum();
 
     println!("Sum of possible games: {valid_game_sum}");
+    Ok(())
+}
+
+fn part_2(games: &[CubeGameInstance]) -> AdventResult<()> {
+    let game_power_sum: u32 = games
+        .iter()
+        .map(|game| game.most_seen().power())
+        .sum();
+
+    println!("Sum of game powers: {game_power_sum}");
     Ok(())
 }
 
@@ -60,6 +74,10 @@ impl CubeGroup {
             green: 0,
             blue: 0,
         }
+    }
+
+    fn power(&self) -> u32 {
+        self.red * self.green * self.blue
     }
 }
 
