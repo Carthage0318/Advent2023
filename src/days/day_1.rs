@@ -84,7 +84,9 @@ fn part_2(calibration_lines: &[String]) -> AdventResult<()> {
             .chars()
             .rev()
             .enumerate()
-            .filter_map(|(index, c)| char::to_digit(c, 10).map(|value| (char_count - index - 1, value)))
+            .filter_map(|(index, c)| {
+                char::to_digit(c, 10).map(|value| (char_count - index - 1, value))
+            })
             .next()
             .unwrap_or((0usize, 0));
 

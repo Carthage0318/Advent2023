@@ -1,4 +1,4 @@
-use days::*;
+pub use days::get_day_fn;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{self, Write};
@@ -72,11 +72,4 @@ pub fn is_valid_day(day: u8) -> bool {
 pub fn get_input_file(day: u8) -> Result<File, io::Error> {
     let path = format!("input/input_{day}.txt");
     File::open(path)
-}
-
-pub fn get_day_fn(day: u8) -> Option<fn(File) -> AdventResult<()>> {
-    match day {
-        1 => Some(day_1::run),
-        _ => None,
-    }
 }
