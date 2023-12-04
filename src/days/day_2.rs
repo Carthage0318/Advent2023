@@ -4,6 +4,7 @@ use regex::Regex;
 use std::cmp::max;
 use std::fs::File;
 
+//noinspection DuplicatedCode
 pub fn run(mut input_file: File) -> AdventResult<()> {
     let games = parser::as_vec_by_line(&mut input_file, line_parser)?;
 
