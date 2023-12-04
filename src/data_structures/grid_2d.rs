@@ -92,7 +92,10 @@ impl<T> Grid2D<T> {
     }
 }
 
-impl<T> Display for Grid2D<T> where T: Display {
+impl<T> Display for Grid2D<T>
+where
+    T: Display,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for row in 0..self.n_rows {
             for item in self.row_unchecked(row) {
