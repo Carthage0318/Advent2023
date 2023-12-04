@@ -54,10 +54,7 @@ struct ScratchCard {
 
 impl ScratchCard {
     fn matches(&self) -> u32 {
-        self.winning_nums
-            .iter()
-            .filter(|x| self.your_nums.contains(x))
-            .count() as u32
+        self.winning_nums.intersection(&self.your_nums).count() as u32
     }
 
     fn score(&self) -> u64 {
