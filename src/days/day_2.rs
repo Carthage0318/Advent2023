@@ -33,10 +33,7 @@ fn part_1(games: &[CubeGameInstance]) -> AdventResult<()> {
 }
 
 fn part_2(games: &[CubeGameInstance]) -> AdventResult<()> {
-    let game_power_sum: u32 = games
-        .iter()
-        .map(|game| game.most_seen().power())
-        .sum();
+    let game_power_sum: u32 = games.iter().map(|game| game.most_seen().power()).sum();
 
     println!("Sum of game powers: {game_power_sum}");
     Ok(())

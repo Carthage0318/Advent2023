@@ -3,8 +3,9 @@ use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{self, Write};
 
+mod data_structures;
 pub mod days;
-pub mod parser;
+mod parser;
 pub mod utils;
 
 type AdventResult<T> = Result<T, AdventErr>;
