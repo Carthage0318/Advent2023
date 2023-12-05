@@ -13,11 +13,22 @@ pub fn as_vec_by_line<T>(
     as_vec_by_line_from_str(&input_str, line_parser)
 }
 
-fn as_vec_by_line_from_str<T>(
+pub fn as_vec_by_line_from_str<T>(
     input: &str,
     line_parser: impl Fn(&str) -> AdventResult<T>,
 ) -> AdventResult<Vec<T>> {
     input.lines().map(|line| line_parser(line.trim())).collect()
+}
+
+pub fn as_vec_by_block<T>(
+    input: &str,
+    block_separator: &str,
+    block_parser: impl Fn(&str) -> AdventResult<T>,
+) -> AdventResult<Vec<T>> {
+    input
+        .split(block_separator)
+        .map(|block| block_parser(block.trim()))
+        .collect()
 }
 
 pub fn as_grid2d_by_char<T>(

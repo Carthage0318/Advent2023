@@ -13,6 +13,7 @@ type AdventResult<T> = Result<T, AdventErr>;
 pub enum AdventErr {
     Io(io::Error),
     InputParse(String),
+    Compute(String),
 }
 
 impl Display for AdventErr {
@@ -21,6 +22,7 @@ impl Display for AdventErr {
         match self {
             AE::Io(e) => e.fmt(f),
             AE::InputParse(s) => write!(f, "Input Parse Error:\n{s}"),
+            AE::Compute(s) => write!(f, "Compute Error:\n{s}"),
         }
     }
 }
