@@ -9,26 +9,51 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
 
     // Part 1
     utils::part_header(1);
-    part_1(&hands);
+    part_1(&mut hands);
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&mut hands);
 
     Ok(())
 }
 
-// Assumes incoming slice is sorted
-fn part_1(hands: &[Hand]) {
-    let total_winnings: u64 = hands
+fn part_1(hands: &mut [Hand]) {
+    let total_winnings = total_winnings(hands);
+
+    println!("Total winnings: {total_winnings}");
+}
+
+fn part_2(hands: &mut [Hand]) {
+    // Swap all Jacks to Jokers
+    for hand in hands.iter_mut() {
+        for card in &mut hand.cards {
+            if *card == Card::Jack {
+                *card = Card::Joker;
+            }
+        }
+    }
+
+    let total_winnings = total_winnings(hands);
+
+    println!("Total winnings: {total_winnings}");
+}
+
+// Sorts hands, then computes total winnings
+fn total_winnings(hands: &mut [Hand]) -> u64 {
+    hands.sort_by_cached_key(|hand| TypedHand::from(hand));
+    hands
         .iter()
         .enumerate()
         .map(|(i, hand)| (i as u64 + 1) * hand.bid)
-        .sum();
-
-    println!("Total winnings: {total_winnings}");
+        .sum()
 }
 
 // Ordered by ascending value
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(u8)]
 enum Card {
+    Joker,
     Two,
     Three,
     Four,
@@ -83,10 +108,16 @@ enum HandType {
 impl From<[Card; 5]> for HandType {
     fn from(mut cards: [Card; 5]) -> Self {
         cards.sort_unstable();
+        let jokers = cards.iter().filter(|&&card| card == Card::Joker).count();
+        if jokers == cards.len() {
+            return HandType::FiveKind;
+        }
+
         let mut groups: [u8; 5] = [0, 0, 0, 0, 0];
         let mut i = 0;
-        let mut current_card = cards[0];
-        for card in cards {
+        // Jokers are guaranteed to be the lowest value, so we can just iterate ahead to skip them.
+        let mut current_card = cards[jokers];
+        for &card in cards.iter().skip(jokers) {
             if card != current_card {
                 current_card = card;
                 i += 1;
@@ -96,6 +127,8 @@ impl From<[Card; 5]> for HandType {
         }
 
         groups.sort_unstable_by_key(|&x| Reverse(x));
+        // Add jokers to largest group
+        groups[0] += jokers as u8;
 
         match groups[0] {
             5 => HandType::FiveKind,
@@ -117,9 +150,23 @@ impl From<[Card; 5]> for HandType {
 // It defines lexicographic ordering for Ord/PartialOrd.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 struct Hand {
-    hand_type: HandType,
     cards: [Card; 5],
     bid: u64,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+struct TypedHand {
+    hand_type: HandType,
+    cards: [Card; 5],
+}
+
+impl From<&Hand> for TypedHand {
+    fn from(value: &Hand) -> Self {
+        TypedHand {
+            hand_type: HandType::from(value.cards),
+            cards: value.cards,
+        }
+    }
 }
 
 fn line_parser(line: &str) -> AdventResult<Hand> {
@@ -145,11 +192,5 @@ fn line_parser(line: &str) -> AdventResult<Hand> {
             .map_err(|s: &str| InputParse(s.to_string()))?;
     }
 
-    let hand_type = cards.into();
-
-    Ok(Hand {
-        cards,
-        bid,
-        hand_type,
-    })
+    Ok(Hand { cards, bid })
 }
