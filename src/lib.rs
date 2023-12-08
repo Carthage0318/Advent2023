@@ -4,7 +4,8 @@ use std::fs::File;
 use std::io::{self, Write};
 
 mod data_structures;
-pub mod days;
+mod days;
+mod math;
 mod parser;
 pub mod utils;
 
