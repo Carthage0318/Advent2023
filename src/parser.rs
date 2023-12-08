@@ -31,6 +31,13 @@ pub fn as_vec_by_block<T>(
         .collect()
 }
 
+pub fn as_vec_by_char<T>(
+    input: &str,
+    char_parser: impl Fn(char) -> AdventResult<T>,
+) -> AdventResult<Vec<T>> {
+    input.chars().map(char_parser).collect()
+}
+
 pub fn as_grid2d_by_char<T>(
     input: &mut File,
     char_parser: impl Fn(char) -> AdventResult<T>,
