@@ -1,7 +1,7 @@
 use std::cmp::{min, Ordering};
 use std::ops::Range;
 
-pub struct SeedData {
+pub(super) struct SeedData {
     pub seed: u64,
     pub soil: u64,
     pub fertilizer: u64,
@@ -96,7 +96,7 @@ impl TryFrom<&str> for Category {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct MapRange {
+pub(super) struct MapRange {
     pub source_start: u64,
     pub destination_start: u64,
     pub length: u64,
@@ -132,7 +132,7 @@ impl MapRange {
 }
 
 #[derive(Debug)]
-pub struct CategoryMap {
+pub(super) struct CategoryMap {
     pub source: Category,
     pub destination: Category,
     pub ranges: Vec<MapRange>,
