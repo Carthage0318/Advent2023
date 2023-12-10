@@ -17,24 +17,45 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
         Ok(Sequence { values })
     })?;
 
+    let polynomials: Vec<_> = sequences
+        .iter()
+        .map(|sequence| Polynomial::try_from(sequence.values.as_slice()))
+        .collect::<AdventResult<_>>()?;
+
     // Part 1
     utils::part_header(1);
-    part_1(&sequences)?;
+    part_1(&sequences, &polynomials)?;
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&polynomials)?;
 
     Ok(())
 }
 
-fn part_1(sequences: &[Sequence]) -> AdventResult<()> {
+fn part_1(sequences: &[Sequence], polynomials: &[Polynomial]) -> AdventResult<()> {
+    assert_eq!(sequences.len(), polynomials.len());
+
     let next_values_sum: i64 = sequences
         .iter()
-        .map(|sequence| {
-            let polynomial = Polynomial::try_from(sequence.values.as_slice())?;
+        .zip(polynomials)
+        .map(|(sequence, polynomial)| {
             let next_index = sequence.values.len();
-            Ok(polynomial.compute_at(next_index))
+            Ok(polynomial.compute_at(next_index as i64))
         })
         .sum::<AdventResult<_>>()?;
 
     println!("Sum of next values: {next_values_sum}");
+    Ok(())
+}
+
+fn part_2(polynomials: &[Polynomial]) -> AdventResult<()> {
+    let previous_values_sum: i64 = polynomials
+        .iter()
+        .map(|polynomial| Ok(polynomial.compute_at(-1_i64)))
+        .sum::<AdventResult<_>>()?;
+
+    println!("Sum of previous values: {previous_values_sum}");
     Ok(())
 }
 
@@ -49,7 +70,7 @@ struct Polynomial {
 }
 
 impl Polynomial {
-    fn compute_at(&self, x: usize) -> i64 {
+    fn compute_at(&self, x: i64) -> i64 {
         self.coefficients
             .iter()
             .enumerate()
