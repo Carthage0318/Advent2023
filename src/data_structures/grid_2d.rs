@@ -23,7 +23,6 @@ impl<T> Grid2D<T>
 where
     T: Clone,
 {
-    #[allow(dead_code)]
     pub fn new(n_rows: usize, n_cols: usize, init: T) -> Self {
         Self {
             vec: vec![init; n_rows * n_cols],
@@ -64,9 +63,23 @@ impl<T> Grid2D<T> {
         &self.vec[self.index(point)]
     }
 
+    pub fn get_mut_unchecked(&mut self, point: GridPoint2D) -> &mut T {
+        let index = self.index(point);
+        &mut self.vec[index]
+    }
+
     pub fn get(&self, point: GridPoint2D) -> Option<&T> {
         if self.in_bounds(point) {
             Some(self.get_unchecked(point))
+        } else {
+            None
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_mut(&mut self, point: GridPoint2D) -> Option<&mut T> {
+        if self.in_bounds(point) {
+            Some(self.get_mut_unchecked(point))
         } else {
             None
         }
@@ -78,6 +91,12 @@ impl<T> Grid2D<T> {
         &self.vec[start..end]
     }
 
+    pub fn row_mut_unchecked(&mut self, row_num: usize) -> &mut [T] {
+        let start = row_num * self.n_cols;
+        let end = start + self.n_cols;
+        &mut self.vec[start..end]
+    }
+
     pub fn row(&self, row_num: usize) -> Option<&[T]> {
         if row_num < self.n_rows {
             Some(self.row_unchecked(row_num))
@@ -86,9 +105,51 @@ impl<T> Grid2D<T> {
         }
     }
 
+    pub fn row_mut(&mut self, row_num: usize) -> Option<&mut [T]> {
+        if row_num < self.n_rows {
+            Some(self.row_mut_unchecked(row_num))
+        } else {
+            None
+        }
+    }
+
     #[allow(dead_code)]
     pub fn rows(&self) -> RowIterator<T> {
         RowIterator::new(self)
+    }
+
+    pub fn map_row_unchecked(&mut self, row_num: usize, map: impl Fn(&T) -> T) {
+        for col_num in 0..self.n_cols() {
+            let index = self.index(GridPoint2D::new(row_num, col_num));
+            self.vec[index] = map(&self.vec[index]);
+        }
+    }
+}
+
+impl<T> Grid2D<T>
+where
+    T: Copy,
+{
+    pub fn swap_rows(&mut self, row_a: usize, row_b: usize) {
+        if row_a > row_b {
+            return self.swap_rows(row_b, row_a);
+        }
+
+        assert!(row_a < self.n_rows());
+        assert!(row_b < self.n_rows());
+        assert_ne!(row_a, row_b);
+
+        let start_index_first = self.index(GridPoint2D::new(row_a, 0));
+        let start_index_second = self.index(GridPoint2D::new(row_b, 0));
+        let (_, first) = self.vec.split_at_mut(start_index_first);
+        let (first, rest) = first.split_at_mut(self.n_cols);
+
+        let already_split = start_index_first + self.n_cols;
+
+        let (_, second) = rest.split_at_mut(start_index_second - already_split);
+        let (second, _) = second.split_at_mut(self.n_cols);
+
+        first.swap_with_slice(second);
     }
 }
 

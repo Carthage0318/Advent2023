@@ -9,6 +9,7 @@ mod day_5;
 mod day_6;
 mod day_7;
 mod day_8;
+mod day_9;
 
 pub fn get_day_fn(day: u8) -> Option<fn(File) -> AdventResult<()>> {
     match day {
@@ -20,6 +21,7 @@ pub fn get_day_fn(day: u8) -> Option<fn(File) -> AdventResult<()>> {
         6 => Some(day_6::run),
         7 => Some(day_7::run),
         8 => Some(day_8::run),
+        9 => Some(day_9::run),
         _ => None,
     }
 }
