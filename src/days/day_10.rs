@@ -1,7 +1,10 @@
 use crate::data_structures::{Grid2D, GridPoint2D};
 use crate::AdventErr::{Compute, InputParse};
-use crate::{parser, utils, AdventErr, AdventResult};
+use crate::{parser, utils, AdventResult};
 use std::fs::File;
+use types::{Boundary, Direction, Tile};
+
+mod types;
 
 pub fn run(mut input_file: File) -> AdventResult<()> {
     let (grid, start_point) = parse_input(&mut input_file)?;
@@ -10,10 +13,105 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&grid, start_point)?;
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&grid, start_point)?;
+
     Ok(())
 }
 
 fn part_1(grid: &Grid2D<Tile>, start_point: GridPoint2D) -> AdventResult<()> {
+    let step_count = traverse_cycle(
+        grid,
+        start_point,
+        None::<fn(GridPoint2D, Direction, Direction)>,
+    )?;
+
+    println!("Steps to farthest point: {}", step_count / 2);
+
+    Ok(())
+}
+
+fn part_2(grid: &Grid2D<Tile>, start_point: GridPoint2D) -> AdventResult<()> {
+    let mut rows = vec![vec![]; grid.n_rows()];
+
+    let pipe_mark = |point: GridPoint2D, direction_1: Direction, direction_2: Direction| {
+        let ns_1 = direction_1 == Direction::North || direction_1 == Direction::South;
+        let ns_2 = direction_2 == Direction::North || direction_2 == Direction::South;
+        if ns_1 || ns_2 {
+            let entry = if ns_1 && ns_2 {
+                Boundary::Line(point.col)
+            } else {
+                let ns_direction = if ns_1 { direction_1 } else { direction_2 };
+                Boundary::Corner(point.col, ns_direction)
+            };
+            rows.get_mut(point.row).unwrap().push(entry);
+        }
+    };
+
+    traverse_cycle(grid, start_point, Some(pipe_mark))?;
+
+    let enclosed_tiles: u64 = rows
+        .iter_mut()
+        .map(|row| {
+            row.sort();
+            let mut total_included: u64 = 0;
+            let mut include_start = None;
+            let mut last_corner_data = None;
+
+            for boundary in row.iter() {
+                match boundary {
+                    Boundary::Line(col) => match include_start {
+                        None => include_start = Some(col),
+                        Some(&start_col) => {
+                            total_included += (col - start_col - 1) as u64;
+                            include_start = None;
+                        }
+                    },
+
+                    Boundary::Corner(col, direction) => match last_corner_data {
+                        None => {
+                            let was_including = include_start.is_some();
+                            if was_including {
+                                let start_col = include_start.unwrap();
+                                total_included += (col - start_col - 1) as u64;
+                                include_start = None;
+                            }
+
+                            last_corner_data = Some((was_including, *direction));
+                        }
+
+                        Some((was_including, last_direction)) => {
+                            let start_including = if last_direction == *direction {
+                                was_including
+                            } else {
+                                !was_including
+                            };
+
+                            if start_including {
+                                include_start = Some(col);
+                            }
+
+                            last_corner_data = None;
+                        }
+                    },
+                }
+            }
+
+            Ok(total_included)
+        })
+        .sum::<AdventResult<_>>()?;
+
+    println!("Enclosed tiles: {enclosed_tiles}");
+
+    Ok(())
+}
+
+fn traverse_cycle(
+    grid: &Grid2D<Tile>,
+    start_point: GridPoint2D,
+    mut pipe_fn: Option<impl FnMut(GridPoint2D, Direction, Direction)>,
+) -> AdventResult<u64> {
     let mut step_count: u64 = 0;
 
     let mut current_position = start_point;
@@ -30,6 +128,10 @@ fn part_1(grid: &Grid2D<Tile>, start_point: GridPoint2D) -> AdventResult<()> {
             return Err(Compute(format!("Ended up on a non-pipe tile")));
         };
 
+        if pipe_fn.is_some() {
+            pipe_fn.as_mut().unwrap()(current_position, *direction_1, *direction_2);
+        }
+
         let next_direction = if entry_direction == *direction_1 {
             *direction_2
         } else {
@@ -45,54 +147,7 @@ fn part_1(grid: &Grid2D<Tile>, start_point: GridPoint2D) -> AdventResult<()> {
         step_count += 1
     }
 
-    println!("Steps to farthest point: {}", step_count / 2);
-
-    Ok(())
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Direction {
-    North,
-    East,
-    South,
-    West,
-}
-
-impl Direction {
-    fn flip(&self) -> Self {
-        match self {
-            Direction::North => Direction::South,
-            Direction::South => Direction::North,
-            Direction::East => Direction::West,
-            Direction::West => Direction::East,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Tile {
-    Pipe(Direction, Direction),
-    Ground,
-    Start,
-}
-
-impl TryFrom<char> for Tile {
-    type Error = AdventErr;
-
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        use Direction as D;
-        match value {
-            '|' => Ok(Tile::Pipe(D::North, D::South)),
-            '-' => Ok(Tile::Pipe(D::East, D::West)),
-            'L' => Ok(Tile::Pipe(D::North, D::East)),
-            'J' => Ok(Tile::Pipe(D::North, D::West)),
-            '7' => Ok(Tile::Pipe(D::South, D::West)),
-            'F' => Ok(Tile::Pipe(D::South, D::East)),
-            '.' => Ok(Tile::Ground),
-            'S' => Ok(Tile::Start),
-            _ => Err(InputParse(format!("Unknown character '{value}'"))),
-        }
-    }
+    Ok(step_count)
 }
 
 fn parse_input(input_file: &mut File) -> AdventResult<(Grid2D<Tile>, GridPoint2D)> {
@@ -185,39 +240,4 @@ fn parse_input(input_file: &mut File) -> AdventResult<(Grid2D<Tile>, GridPoint2D
     *grid.get_mut_unchecked(start_pos) = start_tile;
 
     Ok((grid, start_pos))
-}
-
-impl GridPoint2D {
-    fn north(&self) -> Option<Self> {
-        if self.row == 0 {
-            None
-        } else {
-            Some(Self::new(self.row - 1, self.col))
-        }
-    }
-
-    fn west(&self) -> Option<Self> {
-        if self.col == 0 {
-            None
-        } else {
-            Some(Self::new(self.row, self.col - 1))
-        }
-    }
-
-    fn east(&self) -> Self {
-        Self::new(self.row, self.col + 1)
-    }
-
-    fn south(&self) -> Self {
-        Self::new(self.row + 1, self.col)
-    }
-
-    fn go(&self, direction: Direction) -> Option<Self> {
-        match direction {
-            Direction::North => self.north(),
-            Direction::East => Some(self.east()),
-            Direction::South => Some(self.south()),
-            Direction::West => self.west(),
-        }
-    }
 }
