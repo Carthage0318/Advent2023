@@ -1,4 +1,4 @@
-use crate::data_structures::Grid2D;
+use crate::data_structures::{Grid2D, GridPoint2D};
 use crate::AdventErr::InputParse;
 use crate::AdventResult;
 use std::fs::File;
@@ -64,6 +64,41 @@ fn as_grid2d_by_char_from_str<T>(
         .chars()
         .filter(|&c| c != '\n' && c != '\r')
         .map(char_parser)
+        .collect::<AdventResult<_>>()?;
+
+    Ok(Grid2D::from(vec, n_rows, n_cols))
+}
+
+pub fn as_grid2d_by_char_with_pos<T>(
+    input: &mut File,
+    char_parser: impl FnMut(GridPoint2D, char) -> AdventResult<T>,
+) -> AdventResult<Grid2D<T>> {
+    let mut input_str = String::new();
+    input.read_to_string(&mut input_str)?;
+
+    as_grid2d_by_char_with_pos_from_str(&input_str, char_parser)
+}
+
+fn as_grid2d_by_char_with_pos_from_str<T>(
+    input: &str,
+    mut char_parser: impl FnMut(GridPoint2D, char) -> AdventResult<T>,
+) -> AdventResult<Grid2D<T>> {
+    let n_rows = input.lines().count();
+    let n_cols = input
+        .lines()
+        .next()
+        .ok_or_else(|| InputParse(String::from("Malformed input - empty first line")))?
+        .chars()
+        .count();
+
+    let vec = input
+        .chars()
+        .filter(|&c| c != '\n' && c != '\r')
+        .enumerate()
+        .map(|(index, c)| {
+            let position = GridPoint2D::new(index / n_cols, index % n_cols);
+            char_parser(position, c)
+        })
         .collect::<AdventResult<_>>()?;
 
     Ok(Grid2D::from(vec, n_rows, n_cols))

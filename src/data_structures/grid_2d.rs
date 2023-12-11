@@ -12,6 +12,12 @@ impl GridPoint2D {
     }
 }
 
+impl Display for GridPoint2D {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.row, self.col)
+    }
+}
+
 #[derive(Debug)]
 pub struct Grid2D<T> {
     vec: Vec<T>,
