@@ -10,6 +10,10 @@ impl GridPoint2D {
     pub fn new(row: usize, col: usize) -> Self {
         Self { row, col }
     }
+
+    pub fn manhattan_distance(&self, other: Self) -> usize {
+        self.row.abs_diff(other.row) + self.col.abs_diff(other.col)
+    }
 }
 
 impl Display for GridPoint2D {
