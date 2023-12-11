@@ -1,5 +1,5 @@
 use crate::data_structures::{Grid2D, GridPoint2D};
-use crate::AdventErr::{Compute, InputParse};
+use crate::AdventErr::InputParse;
 use crate::{parser, utils, AdventErr, AdventResult};
 use std::fs::File;
 
@@ -15,16 +15,36 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
 
     // Part 1
     utils::part_header(1);
-    part_1(&galaxies, &image)?;
+    part_1(&galaxies, &image);
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&galaxies, &image);
 
     Ok(())
 }
 
-fn part_1(galaxies: &[GridPoint2D], image: &Grid2D<Element>) -> AdventResult<()> {
-    if galaxies.is_empty() {
-        return Err(Compute(String::from("No galaxies")));
-    }
+fn part_1(galaxies: &[GridPoint2D], image: &Grid2D<Element>) {
+    let expanded_galaxies = expand_universe(galaxies, image, 2);
 
+    let pairwise_distance_sum: usize = sum_pairwise_manhattan_distances(&expanded_galaxies);
+
+    println!("Sum of pairwise galaxy distances: {pairwise_distance_sum}");
+}
+
+fn part_2(galaxies: &[GridPoint2D], image: &Grid2D<Element>) {
+    let expanded_galaxies = expand_universe(galaxies, image, 1_000_000);
+
+    let pairwise_distance_sum: usize = sum_pairwise_manhattan_distances(&expanded_galaxies);
+
+    println!("Sum of pairwise galaxy distances: {pairwise_distance_sum}");
+}
+
+fn expand_universe(
+    galaxies: &[GridPoint2D],
+    image: &Grid2D<Element>,
+    expansion_factor: usize,
+) -> Vec<GridPoint2D> {
     let mut row_empty = vec![true; image.n_rows()];
     let mut col_empty = vec![true; image.n_cols()];
 
@@ -38,25 +58,11 @@ fn part_1(galaxies: &[GridPoint2D], image: &Grid2D<Element>) -> AdventResult<()>
 
     let mut expanded_galaxies = galaxies.to_vec();
     for galaxy in expanded_galaxies.iter_mut() {
-        galaxy.row += row_skips[galaxy.row];
-        galaxy.col += col_skips[galaxy.col];
+        galaxy.row += row_skips[galaxy.row] * (expansion_factor - 1);
+        galaxy.col += col_skips[galaxy.col] * (expansion_factor - 1);
     }
 
-    let pairwise_distance_sum: usize = expanded_galaxies
-        .iter()
-        .enumerate()
-        .map(|(i, galaxy_1)| {
-            expanded_galaxies
-                .iter()
-                .skip(i + 1)
-                .map(|&galaxy_2| galaxy_1.manhattan_distance(galaxy_2))
-                .sum::<usize>()
-        })
-        .sum();
-
-    println!("Sum of pairwise galaxy distances: {pairwise_distance_sum}");
-
-    Ok(())
+    expanded_galaxies
 }
 
 fn count_true_before_or_at(values: &[bool]) -> Vec<usize> {
@@ -70,6 +76,20 @@ fn count_true_before_or_at(values: &[bool]) -> Vec<usize> {
             count
         })
         .collect()
+}
+
+fn sum_pairwise_manhattan_distances(points: &[GridPoint2D]) -> usize {
+    points
+        .iter()
+        .enumerate()
+        .map(|(i, point_1)| {
+            points
+                .iter()
+                .skip(i + 1)
+                .map(|&point_2| point_1.manhattan_distance(point_2))
+                .sum::<usize>()
+        })
+        .sum()
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
