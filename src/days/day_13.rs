@@ -12,6 +12,10 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&terrains)?;
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&terrains)?;
+
     Ok(())
 }
 
@@ -19,10 +23,24 @@ fn part_1(terrains: &[TerrainPattern]) -> AdventResult<()> {
     let pattern_summary: usize = terrains
         .iter()
         .map(|terrain| {
-            MirrorLine::try_from(terrain).map(|mirror| match mirror {
-                MirrorLine::Column(column) => column,
-                MirrorLine::Row(row) => 100 * row,
-            })
+            terrain
+                .find_mirror_line(0)
+                .map(|mirror| mirror.summary_value())
+        })
+        .sum::<AdventResult<_>>()?;
+
+    println!("Summary of pattern notes: {pattern_summary}");
+
+    Ok(())
+}
+
+fn part_2(terrains: &[TerrainPattern]) -> AdventResult<()> {
+    let pattern_summary: usize = terrains
+        .iter()
+        .map(|terrain| {
+            terrain
+                .find_mirror_line(1)
+                .map(|mirror| mirror.summary_value())
         })
         .sum::<AdventResult<_>>()?;
 
@@ -57,26 +75,12 @@ enum MirrorLine {
     Column(usize),
 }
 
-impl<T> TryFrom<&Grid2D<T>> for MirrorLine
-where
-    T: Eq,
-{
-    type Error = AdventErr;
-
-    fn try_from(grid: &Grid2D<T>) -> Result<Self, Self::Error> {
-        for row in 0..grid.n_rows() {
-            if grid.row_is_mirror(row) {
-                return Ok(MirrorLine::Row(row));
-            }
+impl MirrorLine {
+    fn summary_value(&self) -> usize {
+        match self {
+            Self::Row(row) => 100 * row,
+            Self::Column(column) => *column,
         }
-
-        for column in 0..grid.n_cols() {
-            if grid.column_is_mirror(column) {
-                return Ok(MirrorLine::Column(column));
-            }
-        }
-
-        Err(Compute(String::from("Failed to find mirror line")))
     }
 }
 
@@ -84,7 +88,25 @@ impl<T> Grid2D<T>
 where
     T: Eq,
 {
-    fn row_is_mirror(&self, row_num: usize) -> bool {
+    fn find_mirror_line(&self, smudge_count: usize) -> AdventResult<MirrorLine> {
+        for row in 0..self.n_rows() {
+            if self.row_is_mirror(row, smudge_count) {
+                return Ok(MirrorLine::Row(row));
+            }
+        }
+
+        for column in 0..self.n_cols() {
+            if self.column_is_mirror(column, smudge_count) {
+                return Ok(MirrorLine::Column(column));
+            }
+        }
+
+        Err(Compute(format!(
+            "Failed to find mirror line with {smudge_count} smudges"
+        )))
+    }
+
+    fn row_is_mirror(&self, row_num: usize, smudge_count: usize) -> bool {
         if row_num == 0 || row_num >= self.n_rows() {
             return false;
         }
@@ -96,6 +118,7 @@ where
             row_num - rows_to_bottom
         };
 
+        let mut smudges_found = 0;
         for first_row in min_row..row_num {
             let second_row = row_num + (row_num - first_row - 1);
 
@@ -103,16 +126,24 @@ where
                 .row_unchecked(first_row)
                 .iter()
                 .zip(self.row_unchecked(second_row))
-                .any(|(value_a, value_b)| *value_a != *value_b)
+                .any(|(value_a, value_b)| {
+                    if *value_a != *value_b {
+                        if smudges_found == smudge_count {
+                            return true;
+                        }
+                        smudges_found += 1;
+                    }
+                    false
+                })
             {
                 return false;
             }
         }
 
-        true
+        smudges_found == smudge_count
     }
 
-    fn column_is_mirror(&self, column_num: usize) -> bool {
+    fn column_is_mirror(&self, column_num: usize, smudge_count: usize) -> bool {
         if column_num == 0 || column_num >= self.n_cols() {
             return false;
         }
@@ -124,18 +155,27 @@ where
             column_num - cols_to_edge
         };
 
+        let mut smudges_found = 0;
         for first_column in min_col..column_num {
             let second_column = column_num + (column_num - first_column - 1);
 
             if self
                 .column_unchecked(first_column)
                 .zip(self.column_unchecked(second_column))
-                .any(|(value_a, value_b)| *value_a != *value_b)
+                .any(|(value_a, value_b)| {
+                    if *value_a != *value_b {
+                        if smudges_found == smudge_count {
+                            return true;
+                        }
+                        smudges_found += 1;
+                    }
+                    false
+                })
             {
                 return false;
             }
         }
 
-        true
+        smudges_found == smudge_count
     }
 }
