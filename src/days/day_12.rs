@@ -1,5 +1,6 @@
 use crate::AdventErr::InputParse;
 use crate::{parser, utils, AdventErr, AdventResult};
+use std::collections::HashMap;
 use std::fs::File;
 
 pub fn run(mut input_file: File) -> AdventResult<()> {
@@ -9,10 +10,25 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&spring_rows);
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&spring_rows);
+
     Ok(())
 }
 
 fn part_1(spring_rows: &[SpringRow]) {
+    let sum_total_arrangements: u64 = spring_rows.iter().map(number_solutions).sum();
+
+    println!("Sum of total arrangements: {sum_total_arrangements}");
+}
+
+fn part_2(original_spring_rows: &[SpringRow]) {
+    let spring_rows: Vec<_> = original_spring_rows
+        .iter()
+        .map(|spring_row| spring_row.expand(5))
+        .collect();
+
     let sum_total_arrangements: u64 = spring_rows.iter().map(number_solutions).sum();
 
     println!("Sum of total arrangements: {sum_total_arrangements}");
@@ -33,7 +49,10 @@ fn number_solutions(spring_row: &SpringRow) -> u64 {
         damaged_required + (spring_row.groups.len() - 1)
     };
 
+    let mut cache = HashMap::new();
+
     number_solutions_internal(
+        &mut cache,
         &spring_row.springs,
         &spring_row.groups,
         None,
@@ -44,6 +63,7 @@ fn number_solutions(spring_row: &SpringRow) -> u64 {
 }
 
 fn number_solutions_internal(
+    cache: &mut HashMap<(usize, usize), u64>,
     springs: &[Spring],
     groups: &[usize],
     must_place: Option<usize>,
@@ -71,6 +91,7 @@ fn number_solutions_internal(
             match current {
                 Spring::Damaged => 0, // Contradiction
                 Spring::Good => number_solutions_internal(
+                    cache,
                     &springs[1..],
                     groups,
                     None,
@@ -83,6 +104,7 @@ fn number_solutions_internal(
                     },
                 ),
                 Spring::Unknown => number_solutions_internal(
+                    cache,
                     &springs[1..],
                     groups,
                     None,
@@ -102,6 +124,7 @@ fn number_solutions_internal(
             match current {
                 Spring::Good => 0, // Contradiction
                 Spring::Damaged | Spring::Unknown => number_solutions_internal(
+                    cache,
                     &springs[1..],
                     groups,
                     Some(must_place - 1),
@@ -113,8 +136,14 @@ fn number_solutions_internal(
         }
 
         None => {
-            match current {
+            let current_position = (springs.len(), groups.len());
+            if let Some(&cached_result) = cache.get(&current_position) {
+                return cached_result;
+            }
+
+            let result = match current {
                 Spring::Good => number_solutions_internal(
+                    cache,
                     &springs[1..],
                     groups,
                     None,
@@ -128,6 +157,7 @@ fn number_solutions_internal(
                     };
 
                     number_solutions_internal(
+                        cache,
                         &springs[1..],
                         &groups[1..],
                         Some(current_group - 1),
@@ -138,6 +168,7 @@ fn number_solutions_internal(
                 }
                 Spring::Unknown => {
                     let number_good = number_solutions_internal(
+                        cache,
                         &springs[1..],
                         groups,
                         None,
@@ -148,6 +179,7 @@ fn number_solutions_internal(
 
                     let number_damaged = if let Some(&current_group) = groups.first() {
                         number_solutions_internal(
+                            cache,
                             &springs[1..],
                             &groups[1..],
                             Some(current_group - 1),
@@ -162,7 +194,10 @@ fn number_solutions_internal(
 
                     number_good + number_damaged
                 }
-            }
+            };
+
+            cache.insert(current_position, result);
+            result
         }
     }
 }
@@ -191,6 +226,23 @@ impl TryFrom<char> for Spring {
 struct SpringRow {
     springs: Vec<Spring>,
     groups: Vec<usize>,
+}
+
+impl SpringRow {
+    fn expand(&self, factor: usize) -> Self {
+        assert!(factor > 1);
+        let mut springs = Vec::with_capacity(self.springs.len() * 5 + 4);
+        let groups = self.groups.repeat(factor);
+
+        springs.extend(&self.springs);
+
+        for _ in 1..factor {
+            springs.push(Spring::Unknown);
+            springs.extend(&self.springs);
+        }
+
+        Self { springs, groups }
+    }
 }
 
 fn line_parser(line: &str) -> AdventResult<SpringRow> {
