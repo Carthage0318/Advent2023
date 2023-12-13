@@ -24,7 +24,7 @@ pub fn parse_input(input_file: &mut File) -> AdventResult<(Vec<u64>, Vec<Categor
         })
         .collect::<AdventResult<_>>()?;
 
-    let mut maps = parser::as_vec_by_block(rest, "\n\n", block_parser)?;
+    let mut maps = parser::as_vec_by_block_from_str(rest, "\n\n", block_parser)?;
     maps.sort_unstable_by_key(|map| map.source as u8);
 
     Ok((seeds, maps))

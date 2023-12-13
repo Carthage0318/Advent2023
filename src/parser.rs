@@ -21,6 +21,16 @@ pub fn as_vec_by_line_from_str<T>(
 }
 
 pub fn as_vec_by_block<T>(
+    input: &mut File,
+    block_separator: &str,
+    block_parser: impl Fn(&str) -> AdventResult<T>,
+) -> AdventResult<Vec<T>> {
+    let mut input_str = String::new();
+    input.read_to_string(&mut input_str)?;
+    as_vec_by_block_from_str(&input_str, block_separator, block_parser)
+}
+
+pub fn as_vec_by_block_from_str<T>(
     input: &str,
     block_separator: &str,
     block_parser: impl Fn(&str) -> AdventResult<T>,
@@ -48,7 +58,7 @@ pub fn as_grid2d_by_char<T>(
     as_grid2d_by_char_from_str(&input_str, char_parser)
 }
 
-fn as_grid2d_by_char_from_str<T>(
+pub fn as_grid2d_by_char_from_str<T>(
     input: &str,
     char_parser: impl Fn(char) -> AdventResult<T>,
 ) -> AdventResult<Grid2D<T>> {

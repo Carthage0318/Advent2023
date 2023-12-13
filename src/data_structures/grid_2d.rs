@@ -123,6 +123,19 @@ impl<T> Grid2D<T> {
         }
     }
 
+    pub fn column_unchecked(&self, column_num: usize) -> SingleColumnIterator<T> {
+        SingleColumnIterator::new(self, column_num)
+    }
+
+    #[allow(dead_code)]
+    pub fn column(&self, column_num: usize) -> Option<SingleColumnIterator<T>> {
+        if column_num < self.n_cols {
+            Some(self.column_unchecked(column_num))
+        } else {
+            None
+        }
+    }
+
     #[allow(dead_code)]
     pub fn rows(&self) -> RowIterator<T> {
         RowIterator::new(self)
@@ -207,5 +220,36 @@ impl<'a, T> Iterator for RowIterator<'a, T> {
         }
 
         row
+    }
+}
+
+pub struct SingleColumnIterator<'a, T> {
+    grid: &'a Grid2D<T>,
+    column: usize,
+    current_row: usize,
+}
+
+impl<'a, T> SingleColumnIterator<'a, T> {
+    fn new(grid: &'a Grid2D<T>, column: usize) -> Self {
+        Self {
+            grid,
+            column,
+            current_row: 0,
+        }
+    }
+}
+
+impl<'a, T> Iterator for SingleColumnIterator<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let element = self
+            .grid
+            .get(GridPoint2D::new(self.current_row, self.column));
+        if element.is_some() {
+            self.current_row += 1;
+        }
+
+        element
     }
 }
