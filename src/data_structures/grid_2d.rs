@@ -14,6 +14,44 @@ impl GridPoint2D {
     pub fn manhattan_distance(&self, other: Self) -> usize {
         self.row.abs_diff(other.row) + self.col.abs_diff(other.col)
     }
+
+    pub fn next_row(&self) -> Self {
+        Self {
+            row: self.row + 1,
+            ..*self
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn previous_row(&self) -> Option<Self> {
+        if self.row > 0 {
+            Some(Self {
+                row: self.row - 1,
+                ..*self
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn next_column(&self) -> Self {
+        Self {
+            col: self.col + 1,
+            ..*self
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn previous_column(&self) -> Option<Self> {
+        if self.col > 0 {
+            Some(Self {
+                col: self.col - 1,
+                ..*self
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for GridPoint2D {
@@ -65,7 +103,7 @@ impl<T> Grid2D<T> {
         point.row * self.n_cols + point.col
     }
 
-    fn in_bounds(&self, point: GridPoint2D) -> bool {
+    pub fn in_bounds(&self, point: GridPoint2D) -> bool {
         point.row < self.n_rows && point.col < self.n_cols
     }
 
