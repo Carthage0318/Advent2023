@@ -1,6 +1,7 @@
 use crate::data_structures::{Grid2D, GridPoint2D};
 use crate::AdventErr::InputParse;
 use crate::{parser, utils, AdventErr, AdventResult};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 
@@ -9,7 +10,11 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
 
     // Part 1
     utils::part_header(1);
-    part_1(&mut grid);
+    part_1(&mut grid.clone());
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&mut grid);
 
     Ok(())
 }
@@ -21,7 +26,32 @@ fn part_1(grid: &mut Grid2D<Space>) {
     println!("Load on north support beams: {north_support_load}");
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+fn part_2(grid: &mut Grid2D<Space>) {
+    const TOTAL_CYCLES: u32 = 1_000_000_000;
+    let mut cache = Some(HashMap::new());
+
+    let mut i: u32 = 0;
+    while i < TOTAL_CYCLES {
+        if cache.is_some() {
+            if let Some(&last_seen) = cache.as_ref().unwrap().get(grid) {
+                let cycle_len = i - last_seen;
+                let skip_iterations = (TOTAL_CYCLES - i) / cycle_len;
+                i += skip_iterations * cycle_len;
+                cache = None;
+            } else {
+                cache.as_mut().unwrap().insert(grid.clone(), i);
+            }
+        }
+
+        grid.spin_cycle();
+        i += 1;
+    }
+
+    let north_support_load = grid.north_support_load();
+    println!("Load on north support beams: {north_support_load}");
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 enum Space {
     RoundRock,
     CubeRock,
@@ -66,11 +96,42 @@ impl Grid2D<Space> {
             .sum()
     }
 
+    fn spin_cycle(&mut self) {
+        self.tilt_north();
+        self.tilt_west();
+        self.tilt_south();
+        self.tilt_east();
+    }
+
     fn tilt_north(&mut self) {
         self.perform_tilt(
             GridPoint2D::new(0, 0),
             |point| Some(point.next_row()),
             |point| Some(point.next_column()),
+        )
+    }
+
+    fn tilt_south(&mut self) {
+        self.perform_tilt(
+            GridPoint2D::new(self.n_rows() - 1, 0),
+            |point| point.previous_row(),
+            |point| Some(point.next_column()),
+        )
+    }
+
+    fn tilt_east(&mut self) {
+        self.perform_tilt(
+            GridPoint2D::new(0, self.n_cols() - 1),
+            |point| point.previous_column(),
+            |point| Some(point.next_row()),
+        )
+    }
+
+    fn tilt_west(&mut self) {
+        self.perform_tilt(
+            GridPoint2D::new(0, 0),
+            |point| Some(point.next_column()),
+            |point| Some(point.next_row()),
         )
     }
 

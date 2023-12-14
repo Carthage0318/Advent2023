@@ -60,7 +60,7 @@ impl Display for GridPoint2D {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Grid2D<T> {
     vec: Vec<T>,
     n_rows: usize,
