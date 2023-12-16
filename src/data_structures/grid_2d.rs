@@ -153,6 +153,7 @@ impl<T> Grid2D<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn row_mut(&mut self, row_num: usize) -> Option<&mut [T]> {
         if row_num < self.n_rows {
             Some(self.row_mut_unchecked(row_num))
@@ -184,6 +185,10 @@ impl<T> Grid2D<T> {
             let index = self.index(GridPoint2D::new(row_num, col_num));
             self.vec[index] = map(&self.vec[index]);
         }
+    }
+
+    pub fn cells(&self) -> impl Iterator<Item = &T> {
+        self.vec.iter()
     }
 }
 
