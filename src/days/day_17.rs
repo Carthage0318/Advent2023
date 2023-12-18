@@ -2,6 +2,7 @@ use crate::data_structures::{Direction, Grid2D, GridPoint2D};
 use crate::days::day_17::Direction::{Down, Left, Right, Up};
 use crate::AdventErr::{Compute, InputParse};
 use crate::{parser, utils, AdventResult};
+use std::cmp;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fs::File;
@@ -17,16 +18,34 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&city)?;
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&city)?;
+
     Ok(())
 }
-
-const MAX_CONTINUOUS_DIRECTION: usize = 3;
 
 fn part_1(cost_grid: &Grid2D<u8>) -> AdventResult<()> {
     let min_heat_loss = least_cost(
         cost_grid,
         GridPoint2D::new(0, 0),
         GridPoint2D::new(cost_grid.n_rows() - 1, cost_grid.n_cols() - 1),
+        0,
+        3,
+    )?;
+
+    println!("Minimum heat loss: {min_heat_loss}");
+
+    Ok(())
+}
+
+fn part_2(cost_grid: &Grid2D<u8>) -> AdventResult<()> {
+    let min_heat_loss = least_cost(
+        cost_grid,
+        GridPoint2D::new(0, 0),
+        GridPoint2D::new(cost_grid.n_rows() - 1, cost_grid.n_cols() - 1),
+        4,
+        10,
     )?;
 
     println!("Minimum heat loss: {min_heat_loss}");
@@ -38,18 +57,23 @@ fn least_cost(
     entry_cost: &Grid2D<u8>,
     start: GridPoint2D,
     destination: GridPoint2D,
+    min_steps_before_turn_or_stop: usize,
+    max_steps_in_line: usize,
 ) -> AdventResult<u64> {
     assert!(entry_cost.n_rows() > 0 && entry_cost.n_cols() > 0);
     if start == destination {
         return Ok(0);
     }
 
+    let min_steps_before_turn_or_stop = cmp::max(min_steps_before_turn_or_stop, 1);
+    let max_steps_in_line = cmp::max(max_steps_in_line, 1);
+
     let mut search_grid = Grid2D::new(entry_cost.n_rows(), entry_cost.n_cols(), VisitedCell::new());
     *search_grid.get_mut_unchecked(start) = VisitedCell {
-        to_up: 0,
-        to_down: 0,
-        to_left: 0,
-        to_right: 0,
+        to_up: CopyRange::new(0, usize::MAX),
+        to_down: CopyRange::new(0, usize::MAX),
+        to_left: CopyRange::new(0, usize::MAX),
+        to_right: CopyRange::new(0, usize::MAX),
     };
 
     let mut queue = BinaryHeap::new();
@@ -66,18 +90,25 @@ fn least_cost(
         init_direction(direction);
     }
 
+    let worth_exploring = |seen_range: CopyRange<usize>, steps_so_far| {
+        steps_so_far < seen_range.start
+            || (steps_so_far > seen_range.end && seen_range.end < max_steps_in_line - 1)
+    };
+
     while let Some(current_element) = queue.pop() {
-        if current_element.point == destination {
+        if current_element.point == destination
+            && current_element.continuous_steps >= min_steps_before_turn_or_stop
+        {
             return Ok(current_element.cost);
         }
 
-        let mut explore_direction = |direction: Direction, steps_so_far_this_direction: u8| {
+        let mut explore_direction = |direction, steps_so_far_this_direction| {
             let visited = search_grid.get_mut_unchecked(current_element.point);
-            if visited.get(direction) <= steps_so_far_this_direction as usize {
+            if !worth_exploring(visited.get(direction), steps_so_far_this_direction) {
                 return;
             }
 
-            visited.mark_visited(direction, steps_so_far_this_direction as usize);
+            visited.mark_visited(direction, steps_so_far_this_direction);
             let Some(next_point) = current_element.point.move_direction(direction) else {
                 return;
             };
@@ -94,11 +125,13 @@ fn least_cost(
             ));
         };
 
-        if current_element.continuous_steps < MAX_CONTINUOUS_DIRECTION as u8 {
+        if current_element.continuous_steps < max_steps_in_line {
             explore_direction(current_element.direction, current_element.continuous_steps);
         }
-        explore_direction(current_element.direction.turn_left(), 0);
-        explore_direction(current_element.direction.turn_right(), 0);
+        if current_element.continuous_steps >= min_steps_before_turn_or_stop {
+            explore_direction(current_element.direction.turn_left(), 0);
+            explore_direction(current_element.direction.turn_right(), 0);
+        }
     }
 
     Err(Compute(format!(
@@ -126,25 +159,37 @@ impl Direction {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct CopyRange<T: Copy> {
+    start: T,
+    end: T,
+}
+
+impl<T: Copy> CopyRange<T> {
+    fn new(start: T, end: T) -> Self {
+        Self { start, end }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 struct VisitedCell {
-    to_up: usize,
-    to_down: usize,
-    to_left: usize,
-    to_right: usize,
+    to_up: CopyRange<usize>,
+    to_down: CopyRange<usize>,
+    to_left: CopyRange<usize>,
+    to_right: CopyRange<usize>,
 }
 
 impl VisitedCell {
     fn new() -> Self {
         Self {
-            to_up: usize::MAX,
-            to_down: usize::MAX,
-            to_left: usize::MAX,
-            to_right: usize::MAX,
+            to_up: CopyRange::new(usize::MAX, 0),
+            to_down: CopyRange::new(usize::MAX, 0),
+            to_left: CopyRange::new(usize::MAX, 0),
+            to_right: CopyRange::new(usize::MAX, 0),
         }
     }
 
-    fn get(self, direction: Direction) -> usize {
+    fn get(self, direction: Direction) -> CopyRange<usize> {
         match direction {
             Up => self.to_up,
             Down => self.to_down,
@@ -154,25 +199,28 @@ impl VisitedCell {
     }
 
     fn mark_visited(&mut self, direction: Direction, steps_so_far_this_direction: usize) {
-        match direction {
-            Up => self.to_up = steps_so_far_this_direction,
-            Down => self.to_down = steps_so_far_this_direction,
-            Left => self.to_left = steps_so_far_this_direction,
-            Right => self.to_right = steps_so_far_this_direction,
+        let range = match direction {
+            Up => &mut self.to_up,
+            Down => &mut self.to_down,
+            Left => &mut self.to_left,
+            Right => &mut self.to_right,
         };
+
+        range.start = cmp::min(range.start, steps_so_far_this_direction);
+        range.end = cmp::max(range.end, steps_so_far_this_direction);
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct SearchElement {
     direction: Direction,
-    continuous_steps: u8,
+    continuous_steps: usize,
     point: GridPoint2D,
     cost: u64,
 }
 
 impl SearchElement {
-    fn new(direction: Direction, continuous_steps: u8, point: GridPoint2D, cost: u64) -> Self {
+    fn new(direction: Direction, continuous_steps: usize, point: GridPoint2D, cost: u64) -> Self {
         Self {
             direction,
             continuous_steps,
