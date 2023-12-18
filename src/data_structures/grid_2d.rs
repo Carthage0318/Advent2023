@@ -1,3 +1,4 @@
+use crate::data_structures::Direction;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -50,6 +51,15 @@ impl GridPoint2D {
             })
         } else {
             None
+        }
+    }
+
+    pub fn move_direction(self, direction: Direction) -> Option<Self> {
+        match direction {
+            Direction::Up => self.previous_row(),
+            Direction::Down => Some(self.next_row()),
+            Direction::Left => self.previous_column(),
+            Direction::Right => Some(self.next_column()),
         }
     }
 }

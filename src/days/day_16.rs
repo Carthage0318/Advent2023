@@ -1,4 +1,4 @@
-use crate::data_structures::{Grid2D, GridPoint2D};
+use crate::data_structures::{Direction, Grid2D, GridPoint2D};
 use crate::AdventErr::InputParse;
 use crate::{parser, utils, AdventErr, AdventResult};
 use std::cmp;
@@ -166,34 +166,6 @@ impl TryFrom<char> for Tile {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-impl Direction {
-    fn reflect_forward(self) -> Self {
-        match self {
-            Direction::Right => Direction::Up,
-            Direction::Down => Direction::Left,
-            Direction::Left => Direction::Down,
-            Direction::Up => Direction::Right,
-        }
-    }
-
-    fn reflect_backward(self) -> Self {
-        match self {
-            Direction::Right => Direction::Down,
-            Direction::Up => Direction::Left,
-            Direction::Down => Direction::Right,
-            Direction::Left => Direction::Up,
-        }
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
 struct VisitedTile {
     left: bool,
@@ -246,15 +218,6 @@ impl Display for VisitedTile {
 }
 
 impl GridPoint2D {
-    fn move_direction(self, direction: Direction) -> Option<Self> {
-        match direction {
-            Direction::Up => self.previous_row(),
-            Direction::Down => Some(self.next_row()),
-            Direction::Left => self.previous_column(),
-            Direction::Right => Some(self.next_column()),
-        }
-    }
-
     fn reflect_forward(self, direction: Direction) -> (Option<Self>, Direction) {
         let new_direction = direction.reflect_forward();
         (self.move_direction(new_direction), new_direction)
