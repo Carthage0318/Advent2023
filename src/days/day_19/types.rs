@@ -1,5 +1,6 @@
 use crate::AdventErr::{Compute, InputParse};
 use crate::{AdventErr, AdventResult};
+use std::cmp::{max, min};
 
 #[derive(Debug, Copy, Clone)]
 pub(super) struct Part {
@@ -115,4 +116,154 @@ impl Workflow {
 pub(super) enum SortResult {
     Accepted,
     Rejected,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub(super) struct CopyRange<T: Copy> {
+    pub(super) start: T,
+    pub(super) end: T,
+}
+
+impl<T: Copy> CopyRange<T> {
+    pub(super) fn new(start: T, end: T) -> Self {
+        Self { start, end }
+    }
+}
+
+impl CopyRange<u64> {
+    fn restrict(self, restriction: Restriction) -> Option<Self> {
+        match restriction {
+            Restriction::LessThan(value) => {
+                if self.start >= value {
+                    None
+                } else {
+                    Some(CopyRange::new(self.start, min(self.end, value)))
+                }
+            }
+
+            Restriction::GreaterThan(value) => {
+                if self.end <= value + 1 {
+                    None
+                } else {
+                    Some(CopyRange::new(max(self.start, value + 1), self.end))
+                }
+            }
+
+            Restriction::LessOrEqual(value) => {
+                if self.start > value {
+                    None
+                } else {
+                    Some(CopyRange::new(self.start, min(self.end, value + 1)))
+                }
+            }
+
+            Restriction::GreaterOrEqual(value) => {
+                if self.end <= value {
+                    None
+                } else {
+                    Some(CopyRange::new(max(self.start, value), self.end))
+                }
+            }
+        }
+    }
+
+    pub(super) fn size(self) -> u64 {
+        self.end - self.start
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Restriction {
+    LessThan(u64),
+    GreaterThan(u64),
+    LessOrEqual(u64),
+    GreaterOrEqual(u64),
+}
+
+impl Restriction {
+    fn invert(self) -> Self {
+        match self {
+            Restriction::LessThan(x) => Restriction::GreaterOrEqual(x),
+            Restriction::GreaterThan(x) => Restriction::LessOrEqual(x),
+            Restriction::GreaterOrEqual(x) => Restriction::LessThan(x),
+            Restriction::LessOrEqual(x) => Restriction::GreaterThan(x),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub(super) struct PartRange {
+    x: CopyRange<u64>,
+    m: CopyRange<u64>,
+    a: CopyRange<u64>,
+    s: CopyRange<u64>,
+}
+
+impl PartRange {
+    pub(super) fn new(valid_range: CopyRange<u64>) -> Self {
+        Self {
+            x: valid_range,
+            m: valid_range,
+            a: valid_range,
+            s: valid_range,
+        }
+    }
+
+    pub(super) fn apply_rule(mut self, rule: Rule) -> Option<(Self, Destination)> {
+        match rule {
+            Rule::Jump(destination) => Some((self, destination)),
+            Rule::LessThan(category, value, destination) => {
+                let current_range = self.get(category);
+                let new_range = current_range.restrict(Restriction::LessThan(value))?;
+                *self.get_mut(category) = new_range;
+                Some((self, destination))
+            }
+            Rule::GreaterThan(category, value, destination) => {
+                let current_range = self.get(category);
+                let new_range = current_range.restrict(Restriction::GreaterThan(value))?;
+                *self.get_mut(category) = new_range;
+                Some((self, destination))
+            }
+        }
+    }
+
+    pub(super) fn apply_rule_inverse(mut self, rule: Rule) -> Option<Self> {
+        match rule {
+            Rule::Jump(_) => Some(self),
+            Rule::LessThan(category, value, _) => {
+                let current_range = self.get(category);
+                let new_range = current_range.restrict(Restriction::LessThan(value).invert())?;
+                *self.get_mut(category) = new_range;
+                Some(self)
+            }
+            Rule::GreaterThan(category, value, _) => {
+                let current_range = self.get(category);
+                let new_range = current_range.restrict(Restriction::GreaterThan(value).invert())?;
+                *self.get_mut(category) = new_range;
+                Some(self)
+            }
+        }
+    }
+
+    fn get(self, category: Category) -> CopyRange<u64> {
+        match category {
+            Category::X => self.x,
+            Category::M => self.m,
+            Category::A => self.a,
+            Category::S => self.s,
+        }
+    }
+
+    fn get_mut(&mut self, category: Category) -> &mut CopyRange<u64> {
+        match category {
+            Category::X => &mut self.x,
+            Category::M => &mut self.m,
+            Category::A => &mut self.a,
+            Category::S => &mut self.s,
+        }
+    }
+
+    pub(super) fn size(self) -> u64 {
+        self.x.size() * self.m.size() * self.a.size() * self.s.size()
+    }
 }
