@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
+const BROADCASTER_NAME: &str = "broadcaster";
+
 pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, usize)> {
     fn extract_module_identifier(line: &str) -> AdventResult<(Option<char>, &str, &str)> {
         let Some((identifier, outputs)) = line.split_once(" -> ") else {
@@ -17,7 +19,7 @@ pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, u
             )));
         }
 
-        if identifier == "broadcaster" {
+        if identifier == BROADCASTER_NAME {
             return Ok((None, identifier, outputs));
         }
 
@@ -31,7 +33,6 @@ pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, u
 
     // Iterate once to allocate modules with their types
     let mut name_to_index = HashMap::new();
-    let mut broadcast_index = None;
     let mut modules: Vec<_> = input_string
         .lines()
         .enumerate()
@@ -41,14 +42,7 @@ pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, u
             name_to_index.insert(name, i);
 
             Ok(match type_char {
-                None => {
-                    if broadcast_index.is_some() {
-                        return Err(InputParse(String::from("Multiple broadcast modules found")));
-                    };
-
-                    broadcast_index = Some(i);
-                    Module::new_broadcast()
-                }
+                None => Module::new_broadcast(),
                 Some('%') => Module::new_flip_flop(),
                 Some('&') => Module::new_conjunction(),
                 Some(c) => {
@@ -59,10 +53,6 @@ pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, u
             })
         })
         .collect::<AdventResult<_>>()?;
-
-    let Some(broadcast_index) = broadcast_index else {
-        return Err(InputParse(String::from("Didn't find a broadcast module")));
-    };
 
     // Second pass - mark outputs
     for line in input_string.lines() {
@@ -83,6 +73,10 @@ pub(super) fn parse_input(input_file: &mut File) -> AdventResult<(Vec<Module>, u
             })?
         }
     }
+
+    let Some(&broadcast_index) = name_to_index.get(BROADCASTER_NAME) else {
+        return Err(InputParse(String::from("Didn't find a broadcast module")));
+    };
 
     // Retain an input on the broadcast module for the button
     modules[broadcast_index].retain_input();
