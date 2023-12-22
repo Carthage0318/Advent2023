@@ -109,6 +109,14 @@ impl<T> Grid2D<T> {
         self.n_cols
     }
 
+    pub fn is_square(&self) -> bool {
+        self.n_rows == self.n_cols
+    }
+
+    pub fn len(&self) -> usize {
+        self.vec.len()
+    }
+
     fn index(&self, point: GridPoint2D) -> usize {
         point.row * self.n_cols + point.col
     }
@@ -226,6 +234,24 @@ where
         let (second, _) = second.split_at_mut(self.n_cols);
 
         first.swap_with_slice(second);
+    }
+
+    /// Creates a new Grid2D, rotated counterclockwise
+    pub fn rotate_counterclockwise(&self) -> Self {
+        if self.len() == 0 {
+            return Self::from(vec![], 0, 0);
+        }
+
+        let mut result = Grid2D::new(self.n_rows, self.n_cols, self.vec[0]);
+        for old_row in 0..self.n_rows {
+            for old_col in 0..self.n_cols {
+                let new_point = GridPoint2D::new(self.n_cols - 1 - old_col, old_row);
+                *result.get_mut_unchecked(new_point) =
+                    *self.get_unchecked(GridPoint2D::new(old_row, old_col));
+            }
+        }
+
+        result
     }
 }
 

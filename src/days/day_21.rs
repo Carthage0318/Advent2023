@@ -1,8 +1,9 @@
 use crate::data_structures::{Grid2D, GridPoint2D};
-use crate::AdventErr::InputParse;
+use crate::AdventErr::{Compute, InputParse};
 use crate::{parser, utils, AdventResult};
-use std::collections::VecDeque;
 use std::fs::File;
+
+mod implementation;
 
 pub fn run(mut input_file: File) -> AdventResult<()> {
     let (grid, starting_position) = parse_input(&mut input_file)?;
@@ -11,60 +12,75 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&grid, starting_position);
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&grid, starting_position)?;
+
     Ok(())
 }
 
 fn part_1(grid: &Grid2D<Tile>, starting_position: GridPoint2D) {
-    let reachable_plots = count_visitable(grid, starting_position, 64);
+    let reachable_plots = implementation::count_visitable_finite(grid, starting_position, 64);
 
     println!("Reachable garden plots in 64 steps: {reachable_plots}");
 }
 
-fn count_visitable(
-    reference_grid: &Grid2D<Tile>,
-    starting_position: GridPoint2D,
-    total_steps: u64,
-) -> usize {
-    let mut steps_grid = Grid2D::new(reference_grid.n_rows(), reference_grid.n_cols(), None);
+fn part_2(grid: &Grid2D<Tile>, starting_position: GridPoint2D) -> AdventResult<()> {
+    // Our solution relies on a few assumptions about the input.
+    // These are observed features which we do not believe to be coincidental,
+    // as they would be unlikely in random input, and significantly simplify the problem space.
+    // 1. The entire border contains no rocks.
+    // 2. The entire row and column containing the starting position contain no rocks.
+    // 3. The grid is a square.
 
-    let mut queue = VecDeque::new();
-    queue.push_back((starting_position, 0_u64));
+    // Assert these assumptions.
+    if grid.n_rows() == 0 || grid.n_cols() == 0 {
+        return Err(Compute(String::from("Empty grid")));
+    }
 
-    while let Some((point, steps_taken)) = queue.pop_front() {
-        let Some(&tile) = reference_grid.get(point) else {
-            continue;
-        };
-
-        match tile {
-            Tile::Rock => continue,
-            Tile::Garden => {
-                let recorded_steps = steps_grid.get_mut_unchecked(point);
-                if recorded_steps.is_some() {
-                    continue;
-                }
-
-                *recorded_steps = Some(steps_taken);
-                if steps_taken < total_steps {
-                    if let Some(next) = point.previous_row() {
-                        queue.push_back((next, steps_taken + 1));
-                    }
-                    if let Some(next) = point.previous_column() {
-                        queue.push_back((next, steps_taken + 1))
-                    }
-                    queue.push_back((point.next_row(), steps_taken + 1));
-                    queue.push_back((point.next_column(), steps_taken + 1));
-                }
-            }
+    for &cell in grid
+        .row_unchecked(0)
+        .iter()
+        .chain(grid.row_unchecked(grid.n_rows() - 1))
+        .chain(grid.column_unchecked(0))
+        .chain(grid.column_unchecked(grid.n_cols() - 1))
+    {
+        if cell == Tile::Rock {
+            return Err(Compute(String::from(
+                "Assumption violated: Rock present in map boundary",
+            )));
         }
     }
 
-    steps_grid
-        .cells()
-        .filter(|&&x| match x {
-            Some(steps_required) => steps_required % 2 == total_steps % 2,
-            None => false,
-        })
-        .count()
+    if grid.get(starting_position).is_none() {
+        return Err(Compute(String::from("Invalid starting position")));
+    }
+
+    for &cell in grid
+        .row_unchecked(starting_position.row)
+        .iter()
+        .chain(grid.column_unchecked(starting_position.col))
+    {
+        if cell == Tile::Rock {
+            return Err(Compute(String::from(
+                "Assumption violated: Rock present in starting row/column",
+            )));
+        }
+    }
+
+    if !grid.is_square() {
+        return Err(Compute(String::from(
+            "Assumption violated: Non-square grid",
+        )));
+    }
+
+    const PART_2_STEPS: u64 = 26501365;
+    let reachable_plots =
+        implementation::count_visitable_infinite(grid, starting_position, PART_2_STEPS);
+
+    println!("Reachable garden plots in {PART_2_STEPS} steps: {reachable_plots}");
+
+    Ok(())
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
