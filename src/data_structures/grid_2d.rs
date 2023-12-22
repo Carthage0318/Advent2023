@@ -1,5 +1,6 @@
 use crate::data_structures::Direction;
 use std::fmt::{Display, Formatter};
+use std::ops::{Add, AddAssign};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct GridPoint2D {
@@ -61,6 +62,20 @@ impl GridPoint2D {
             Direction::Left => self.previous_column(),
             Direction::Right => Some(self.next_column()),
         }
+    }
+}
+
+impl Add for GridPoint2D {
+    type Output = GridPoint2D;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::new(self.row + rhs.row, self.col + rhs.col)
+    }
+}
+
+impl AddAssign for GridPoint2D {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = self.add(rhs)
     }
 }
 
