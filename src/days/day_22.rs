@@ -1,10 +1,10 @@
 use crate::data_structures::{Grid2D, GridPoint2D};
-use crate::AdventErr::InputParse;
+use crate::AdventErr::{Compute, InputParse};
 use crate::{parser, utils, AdventErr, AdventResult};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::cmp::{max, min};
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::str::FromStr;
 
@@ -13,12 +13,16 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
 
     // Part 1
     utils::part_header(1);
-    part_1(&mut bricks);
+    let support_structures = part_1(&mut bricks)?;
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&support_structures)?;
 
     Ok(())
 }
 
-fn part_1(bricks: &mut [Brick]) {
+fn part_1(bricks: &mut [Brick]) -> AdventResult<Vec<SupportStructure>> {
     let support_structures = drop_bricks(bricks);
 
     let removable_bricks = (0..bricks.len())
@@ -31,6 +35,18 @@ fn part_1(bricks: &mut [Brick]) {
         .count();
 
     println!("Bricks safe to disintegrate: {removable_bricks}");
+
+    Ok(support_structures)
+}
+
+fn part_2(support_structures: &[SupportStructure]) -> AdventResult<()> {
+    let chain_reaction_sum: usize = (0..support_structures.len())
+        .map(|first_removed| chain_reaction(support_structures, first_removed))
+        .sum::<AdventResult<_>>()?;
+
+    println!("Sum of bricks that would fall: {chain_reaction_sum}");
+
+    Ok(())
 }
 
 fn drop_bricks(bricks: &mut [Brick]) -> Vec<SupportStructure> {
@@ -89,6 +105,42 @@ fn drop_bricks(bricks: &mut [Brick]) -> Vec<SupportStructure> {
     }
 
     support_structures
+}
+
+fn chain_reaction(
+    support_structures: &[SupportStructure],
+    first_removed: usize,
+) -> AdventResult<usize> {
+    if first_removed >= support_structures.len() {
+        return Err(Compute(String::from(
+            "Tried to compute chain reaction for out-of-range brick",
+        )));
+    }
+
+    // Quick note - those on the ground already have no support structure
+    let mut remaining_supports: Vec<_> = support_structures
+        .iter()
+        .map(|support_structure| support_structure.below.len())
+        .collect();
+
+    let mut queue: VecDeque<usize> = VecDeque::new();
+    queue.extend(support_structures[first_removed].above.iter());
+
+    let mut total_fell = 0;
+    while let Some(touched) = queue.pop_front() {
+        let Some(supports) = remaining_supports.get_mut(touched) else {
+            return Err(Compute(String::from(
+                "Tried to remove support from out-of-range brick",
+            )));
+        };
+        *supports -= 1;
+        if *supports == 0 {
+            total_fell += 1;
+            queue.extend(support_structures[touched].above.iter());
+        }
+    }
+
+    Ok(total_fell)
 }
 
 #[derive(Debug, Clone)]
