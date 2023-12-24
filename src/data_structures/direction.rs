@@ -8,27 +8,20 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn reflect_forward(self) -> Self {
-        match self {
-            Direction::Right => Direction::Up,
-            Direction::Down => Direction::Left,
-            Direction::Left => Direction::Down,
-            Direction::Up => Direction::Right,
-        }
-    }
-
-    pub fn reflect_backward(self) -> Self {
-        match self {
-            Direction::Right => Direction::Down,
-            Direction::Up => Direction::Left,
-            Direction::Down => Direction::Right,
-            Direction::Left => Direction::Up,
-        }
-    }
-
     pub fn is_left_turn(start: Self, end: Self) -> bool {
         ((end as u8 + 4) - (start as u8)) % 4 == 1
     }
+
+    pub fn reverse(self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+
+    pub const ALL: [Self; 4] = [Self::Up, Self::Down, Self::Left, Self::Right];
 }
 
 #[cfg(test)]

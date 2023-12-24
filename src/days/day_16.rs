@@ -228,3 +228,23 @@ impl GridPoint2D {
         (self.move_direction(new_direction), new_direction)
     }
 }
+
+impl Direction {
+    fn reflect_forward(self) -> Self {
+        match self {
+            Direction::Right => Direction::Up,
+            Direction::Down => Direction::Left,
+            Direction::Left => Direction::Down,
+            Direction::Up => Direction::Right,
+        }
+    }
+
+    fn reflect_backward(self) -> Self {
+        match self {
+            Direction::Right => Direction::Down,
+            Direction::Up => Direction::Left,
+            Direction::Down => Direction::Right,
+            Direction::Left => Direction::Up,
+        }
+    }
+}
