@@ -12,20 +12,34 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     utils::part_header(1);
     part_1(&trail_map)?;
 
+    // Part 2
+    utils::part_header(2);
+    part_2(&trail_map)?;
+
     Ok(())
 }
 
 fn part_1(trail_map: &Grid2D<Tile>) -> AdventResult<()> {
-    let outputs = build_graph(trail_map)?;
+    let outputs = build_graph(trail_map, true)?;
 
-    let longest_hike = max_cost(&outputs, 1)?;
+    let longest_hike = max_cost_acyclic(&outputs, 1)?;
 
     println!("Steps in longest hike: {longest_hike}");
 
     Ok(())
 }
 
-fn max_cost(outputs: &[Vec<Edge>], end_node: usize) -> AdventResult<u64> {
+fn part_2(trail_map: &Grid2D<Tile>) -> AdventResult<()> {
+    let cyclic_outputs = build_graph(trail_map, false)?;
+
+    let longest_hike = max_cost_cyclic(&cyclic_outputs, 0, 1)?;
+
+    println!("Steps in longest hike: {longest_hike}");
+
+    Ok(())
+}
+
+fn max_cost_acyclic(outputs: &[Vec<Edge>], end_node: usize) -> AdventResult<u64> {
     if outputs.len() < 2 {
         return Err(Compute(String::from("Not enough nodes")));
     }
@@ -56,6 +70,56 @@ fn max_cost(outputs: &[Vec<Edge>], end_node: usize) -> AdventResult<u64> {
     }
 
     Err(Compute(String::from("Failed to find path to end node")))
+}
+
+fn max_cost_cyclic(outputs: &[Vec<Edge>], start_node: usize, end_node: usize) -> AdventResult<u64> {
+    fn visit(
+        node_id: usize,
+        cost_so_far: u64,
+        outputs: &[Vec<Edge>],
+        end_node: usize,
+        visited: &mut [bool],
+    ) -> AdventResult<u64> {
+        if node_id == end_node {
+            return Ok(cost_so_far);
+        }
+
+        *visited.get_mut(node_id).unwrap() = true;
+        let mut longest_path = 0;
+        for edge in outputs.get(node_id).unwrap() {
+            if !*visited.get(edge.destination).ok_or_else(|| {
+                Compute(String::from(
+                    "Tried to check visited for out-of-bounds node",
+                ))
+            })? {
+                longest_path = max(
+                    longest_path,
+                    visit(
+                        edge.destination,
+                        cost_so_far + edge.length,
+                        outputs,
+                        end_node,
+                        visited,
+                    )?,
+                );
+            }
+        }
+        *visited.get_mut(node_id).unwrap() = false;
+
+        Ok(longest_path)
+    }
+
+    if outputs.get(start_node).is_none() {
+        return Err(Compute(String::from("Invalid start node")));
+    }
+
+    let mut visited = vec![false; outputs.len()];
+    let longest_path = visit(start_node, 0, outputs, end_node, &mut visited)?;
+    if longest_path > 0 {
+        Ok(longest_path)
+    } else {
+        Err(Compute(String::from("Failed to find path to end node")))
+    }
 }
 
 fn topological_sort(outputs: &[Vec<Edge>], start_node: usize) -> AdventResult<Vec<usize>> {
@@ -100,7 +164,7 @@ fn topological_sort(outputs: &[Vec<Edge>], start_node: usize) -> AdventResult<Ve
     Ok(result)
 }
 
-fn build_graph(trail_map: &Grid2D<Tile>) -> AdventResult<Vec<Vec<Edge>>> {
+fn build_graph(trail_map: &Grid2D<Tile>, one_way_slopes: bool) -> AdventResult<Vec<Vec<Edge>>> {
     if trail_map.n_rows() < 2 || trail_map.n_cols() < 1 {
         return Err(Compute(String::from("Trail map is too small")));
     }
@@ -151,12 +215,12 @@ fn build_graph(trail_map: &Grid2D<Tile>) -> AdventResult<Vec<Vec<Edge>>> {
                 continue;
             };
 
-            if !next_tile.is_valid_step_onto(exit_direction) {
+            if !next_tile.is_valid_step_onto(exit_direction, one_way_slopes) {
                 continue;
             }
 
             if let Some((destination_node_point, steps_taken)) =
-                walk_path(trail_map, next_point, 1, exit_direction)
+                walk_path(trail_map, one_way_slopes, next_point, 1, exit_direction)
             {
                 // We found a connection to another node!
                 let destination_node_id = *point_to_node
@@ -175,8 +239,51 @@ fn build_graph(trail_map: &Grid2D<Tile>) -> AdventResult<Vec<Vec<Edge>>> {
     Ok(outputs)
 }
 
+/// If the walk reaches another node (point with more than one valid exit), returns Some
+/// with that point and the number of steps it took to get there.
+fn walk_path(
+    trail_map: &Grid2D<Tile>,
+    one_way_slopes: bool,
+    current_point: GridPoint2D,
+    steps_so_far: u64,
+    last_step_direction: Direction,
+) -> Option<(GridPoint2D, u64)> {
+    match path_exits(
+        trail_map,
+        one_way_slopes,
+        current_point,
+        last_step_direction,
+    ) {
+        ValidExits::Zero => {
+            // Dead end, but might be the end point
+            if current_point.row == trail_map.n_rows() - 1 {
+                Some((current_point, steps_so_far))
+            } else {
+                None
+            }
+        }
+
+        ValidExits::One(next_direction, next_point) => {
+            // The path continues
+            walk_path(
+                trail_map,
+                one_way_slopes,
+                next_point,
+                steps_so_far + 1,
+                next_direction,
+            )
+        }
+
+        ValidExits::Many => {
+            // This point is a node. Path complete.
+            Some((current_point, steps_so_far))
+        }
+    }
+}
+
 fn path_exits(
     trail_map: &Grid2D<Tile>,
+    one_way_slopes: bool,
     point: GridPoint2D,
     entry_direction: Direction,
 ) -> ValidExits {
@@ -196,7 +303,7 @@ fn path_exits(
             continue;
         };
 
-        if next_tile.is_valid_step_onto(exit_direction) {
+        if next_tile.is_valid_step_onto(exit_direction, one_way_slopes) {
             exits_found += 1;
             if exits_found > 1 {
                 return ValidExits::Many;
@@ -211,36 +318,6 @@ fn path_exits(
         ValidExits::Zero
     } else {
         ValidExits::One(last_exit_direction, last_exit_point)
-    }
-}
-
-/// If the walk reaches another node (point with more than one valid exit, returns Some
-/// with that point and the number of steps it took to get there.
-fn walk_path(
-    trail_map: &Grid2D<Tile>,
-    current_point: GridPoint2D,
-    steps_so_far: u64,
-    last_step_direction: Direction,
-) -> Option<(GridPoint2D, u64)> {
-    match path_exits(trail_map, current_point, last_step_direction) {
-        ValidExits::Zero => {
-            // Dead end, but might be the end point
-            if current_point.row == trail_map.n_rows() - 1 {
-                Some((current_point, steps_so_far))
-            } else {
-                None
-            }
-        }
-
-        ValidExits::One(next_direction, next_point) => {
-            // The path continues
-            walk_path(trail_map, next_point, steps_so_far + 1, next_direction)
-        }
-
-        ValidExits::Many => {
-            // This point is a node. Path complete.
-            Some((current_point, steps_so_far))
-        }
     }
 }
 
@@ -274,11 +351,11 @@ enum Tile {
 }
 
 impl Tile {
-    fn is_valid_step_onto(self, direction: Direction) -> bool {
+    fn is_valid_step_onto(self, direction: Direction, one_way_slopes: bool) -> bool {
         match self {
             Self::Path => true,
             Self::Forest => false,
-            Self::Slope(slope) => slope == direction,
+            Self::Slope(slope) => !one_way_slopes || slope == direction,
         }
     }
 }
