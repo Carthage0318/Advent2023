@@ -1,7 +1,9 @@
+use crate::data_structures::Grid2D;
 use crate::AdventErr::{Compute, InputParse};
-use crate::{parser, utils, AdventErr, AdventResult};
+use crate::{math, parser, utils, AdventErr, AdventResult};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
@@ -21,6 +23,10 @@ pub fn run(mut input_file: File) -> AdventResult<()> {
     // Part 1
     utils::part_header(1);
     part_1(&hailstones)?;
+
+    // Part 2
+    utils::part_header(2);
+    part_2(&hailstones)?;
 
     Ok(())
 }
@@ -64,6 +70,66 @@ fn part_1(hailstones: &[Parametric]) -> AdventResult<()> {
     Ok(())
 }
 
+/// This solution is based on a bunch of algebra done by-hand.
+/// It wasn't fun, and I don't suggest you try following it,
+/// if you're reading this in the future.
+fn part_2(hailstones: &[Parametric]) -> AdventResult<()> {
+    if hailstones.len() < 5 {
+        return Err(Compute(String::from(
+            "At least 5 pieces of data required to solve",
+        )));
+    }
+
+    let coefficients: Vec<_> = hailstones[..5]
+        .iter()
+        .map(|data| ExpressionCoefficients {
+            a: -data.position.y,
+            b: data.position.x,
+            c: data.velocity.y,
+            d: -data.velocity.x,
+            g: data.position.y * data.velocity.x - data.position.x * data.velocity.y,
+        })
+        .collect();
+
+    let mut a_values = Grid2D::new(4, 4, 0_f64);
+    let mut b_values = [0_f64; 4];
+    for row_num in 0..4 {
+        let e1 = coefficients[row_num];
+        let e2 = coefficients[row_num + 1];
+
+        let row = a_values.row_mut_unchecked(row_num);
+        row[0] = (e1.a - e2.a) as f64;
+        row[1] = (e1.b - e2.b) as f64;
+        row[2] = (e1.c - e2.c) as f64;
+        row[3] = (e1.d - e2.d) as f64;
+        b_values[row_num] = (e2.g - e1.g) as f64;
+    }
+
+    math::gauss_jordan(&mut a_values, &mut b_values)?;
+
+    let v_x = b_values[0];
+    let x = b_values[2];
+    let y = b_values[3];
+
+    // Compute time for first hailstone to be hit
+    let t0 = (hailstones[0].position.x as f64 - x) / (v_x - hailstones[0].velocity.x as f64);
+    // And second
+    let t1 = (hailstones[1].position.x as f64 - x) / (v_x - hailstones[1].velocity.x as f64);
+    // From this, we can quickly compute z
+    let z_intersect_0 = hailstones[0].position.z as f64 + t0 * hailstones[0].velocity.z as f64;
+    let z_intersect_1 = hailstones[1].position.z as f64 + t1 * hailstones[1].velocity.z as f64;
+    let v_z = (z_intersect_1 - z_intersect_0) / (t1 - t0);
+    let z = (z_intersect_0) - v_z * t0;
+
+    let x = x.round() as i64;
+    let y = y.round() as i64;
+    let z = z.round() as i64;
+
+    println!("Sum of rock initial position components: {}", x + y + z);
+
+    Ok(())
+}
+
 #[derive(Debug, Copy, Clone)]
 struct Parametric {
     position: Point3D,
@@ -89,11 +155,17 @@ impl Parametric {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct Point3D {
     x: i64,
     y: i64,
-    _z: i64,
+    z: i64,
+}
+
+impl Display for Point3D {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -102,13 +174,11 @@ struct SlopeIntercept {
     intercept: f64,
 }
 
-const EPSILON: f64 = 1e-5;
-
 impl SlopeIntercept {
     /// Gives (x, y) position of intersection
     fn intersection(self, other: Self) -> Option<(f64, f64)> {
-        if (self.slope - other.slope).abs() < EPSILON {
-            return if (self.intercept - other.intercept).abs() < EPSILON {
+        if math::approximately(self.slope, other.slope) {
+            return if math::approximately(self.intercept, other.intercept) {
                 // These are the same line. Any point is valid.
                 Some((0_f64, self.compute_y(0_f64)))
             } else {
@@ -125,6 +195,19 @@ impl SlopeIntercept {
     fn compute_y(self, x: f64) -> f64 {
         self.slope * x + self.intercept
     }
+}
+
+/// Expression of the form a * vx + b * vy + c * x + d * y + g
+/// This is equal to x * vy - y * vx
+/// where our shot is fired from (x, y, z) @ (vx, vy, vz)
+/// (Assume hit at an arbitrary t and manipulate algebra to get here)
+#[derive(Debug, Copy, Clone)]
+struct ExpressionCoefficients {
+    a: i64,
+    b: i64,
+    c: i64,
+    d: i64,
+    g: i64,
 }
 
 lazy_static! {
@@ -150,6 +233,6 @@ impl FromStr for Point3D {
             .parse()
             .map_err(|_| InputParse(format!("Failed to parse z for point: {s}")))?;
 
-        Ok(Point3D { x, y, _z: z })
+        Ok(Point3D { x, y, z: z })
     }
 }

@@ -1,3 +1,6 @@
+use crate::data_structures::{Grid2D, GridPoint2D};
+use crate::AdventErr::Compute;
+use crate::AdventResult;
 use num::{Integer, Num, Signed, Unsigned};
 use prime_factorization::Factorization;
 
@@ -95,6 +98,74 @@ pub fn chinese_remainder_theorem(remainders: &[u64], moduli: &[u64]) -> Option<u
             Some((solution, new_mod))
         })
         .map(|(solution, _)| solution)
+}
+
+/// Panics if the length of `b` is different from the number of columns in `a`,
+/// or if `a` is not square
+pub fn gauss_jordan(a: &mut Grid2D<f64>, b: &mut [f64]) -> AdventResult<()> {
+    assert_eq!(b.len(), a.n_cols());
+    assert_eq!(a.n_rows(), a.n_cols());
+
+    // To be used only once the pivot is 1.
+    fn eliminate(pivot_row: usize, target_row: usize, a: &mut Grid2D<f64>, b: &mut [f64]) {
+        use GridPoint2D as P;
+        let factor = -*a.get_unchecked(P::new(target_row, pivot_row));
+
+        for col_num in 0..a.n_cols() {
+            let pivot_row_value = *a.get_unchecked(P::new(pivot_row, col_num));
+            *a.get_mut_unchecked(P::new(target_row, col_num)) += pivot_row_value * factor;
+        }
+
+        *b.get_mut(target_row).unwrap() += b.get(pivot_row).unwrap() * factor;
+    }
+
+    fn pivot_pt(row: usize) -> GridPoint2D {
+        GridPoint2D::new(row, row)
+    }
+
+    for current_row in 0..a.n_rows() {
+        // If current pivot is 0, we need to swap
+        if approximately(*a.get_unchecked(pivot_pt(current_row)), 0_f64) {
+            let mut swap_row = None;
+            for candidate_row in (current_row + 1)..a.n_rows() {
+                if !approximately(*a.get_unchecked(pivot_pt(current_row)), 0_f64) {
+                    swap_row = Some(candidate_row);
+                    break;
+                }
+            }
+
+            let Some(swap_row) = swap_row else {
+                return Err(Compute(String::from(
+                    "Gauss-Jordan failed. Dependent equations",
+                )));
+            };
+
+            a.swap_rows(current_row, swap_row);
+            b.swap(current_row, swap_row);
+        }
+
+        // Divide this row by its pivot so the pivot becomes 1.
+        let pivot = *a.get_unchecked(pivot_pt(current_row));
+        a.map_row_unchecked(current_row, |&value| value / pivot);
+        *b.get_mut(current_row).unwrap() /= pivot;
+
+        // Eliminate
+        for target_row in 0..a.n_rows() {
+            if target_row == current_row {
+                continue;
+            }
+
+            eliminate(current_row, target_row, a, b);
+        }
+    }
+
+    Ok(())
+}
+
+pub const EPSILON: f64 = 1e-6;
+
+pub fn approximately(a: f64, b: f64) -> bool {
+    (a - b).abs() < EPSILON
 }
 
 #[cfg(test)]
