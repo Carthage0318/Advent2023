@@ -18,6 +18,7 @@ mod day_21;
 mod day_22;
 mod day_23;
 mod day_24;
+mod day_25;
 mod day_3;
 mod day_4;
 mod day_5;
@@ -52,6 +53,7 @@ pub fn get_day_fn(day: u8) -> Option<fn(File) -> AdventResult<()>> {
         22 => Some(day_22::run),
         23 => Some(day_23::run),
         24 => Some(day_24::run),
+        25 => Some(day_25::run),
         _ => None,
     }
 }
