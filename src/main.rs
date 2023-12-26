@@ -10,11 +10,11 @@ fn main() {
                 if advent_2023::is_valid_day(day) {
                     break day;
                 } else {
-                    println!("Invalid day '{day}'")
+                    eprintln!("Invalid day '{day}'")
                 }
             }
             Err(PromptDayErr::ParseDay(input)) => {
-                println!("Invalid day '{input}'");
+                eprintln!("Invalid day '{input}'");
                 continue;
             }
             Err(e) => {
@@ -25,15 +25,15 @@ fn main() {
     };
 
     let day_fn = advent_2023::get_day_fn(day).unwrap_or_else(|| {
-        println!("Day {day} isn't implemented yet!");
+        eprintln!("Day {day} isn't implemented yet!");
         process::exit(3);
     });
 
     let input_file = advent_2023::get_input_file(day).unwrap_or_else(|e| {
-        println!("Error opening file for day {day}:\n{e}");
+        eprintln!("Error opening file for day {day}:\n{e}");
         process::exit(2);
     });
 
     utils::day_header(day);
-    day_fn(input_file).unwrap_or_else(|e| println!("Error executing day {day}:\n{e}"));
+    day_fn(input_file).unwrap_or_else(|e| eprintln!("Error executing day {day}:\n{e}"));
 }
